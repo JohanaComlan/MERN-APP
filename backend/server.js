@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { connectDB } from "./config/db.js";
 import Product from './models/product.model.js';
+import mongoose from 'mongoose';
 
 dotenv.config();
 
@@ -14,11 +15,24 @@ app.get("/products", (req, res) =>{
     res.send("Server is ready");
 })
 
-console.log(process.env.MONGO_URI);
-
 app.get("/", (req, res) => {
   res.send("Hello from the root route");
 });
+
+app.get("/api/products", async(req, res) =>{
+  try {
+    const products = await Product.find({});
+    res.status(200).json({
+      success: true,
+      data: products
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Server Error: ${error}`
+    })
+  }
+})
 
 app.post("/api/products", async (req, res) => {
   // Here you would typically handle the creation of a new product
@@ -34,7 +48,7 @@ app.post("/api/products", async (req, res) => {
 
   try{
     await newProduct.save();
-    return res.status(201).json({
+    return res.status(200).json({
         success: true,
         message:"Product created successfully",
         product: newProduct
@@ -50,8 +64,54 @@ app.post("/api/products", async (req, res) => {
 });
 
 app.delete("/api/products/:id", async (req, res) => {
-    
+    // take the id property from req.params and assign it to a variable called id
+    const {id} = req.params;
+    try{
+      await Product.findByIdAndDelete(id);
+      res.status(201).json({
+        success: true, 
+        message :"Product deleted"});
+    }catch(error){
+      res.status(404).json({
+        success: false,
+        message: `error: ${error}`
+      }) 
+    }
 })
+
+app.put("/api/products/:id", async (req, res) => { 
+  const { id } = req.params;
+  const product = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(404).json({
+      success: false,
+      message: "Invalid Product Id"
+    });
+  }
+
+  try {
+    const updatedProduct = await Product.findByIdAndUpdate(id, product, { new: true });
+
+    if (!updatedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: updatedProduct
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server Error"
+    });
+  }
+});
+
 
 // Start the server
 app.listen(3001, ()=>{
